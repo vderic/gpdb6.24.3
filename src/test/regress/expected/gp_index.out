@@ -1,0 +1,157 @@
+--
+-- Greenplum disallows concurrent index creation. It allows concurrent index
+-- drops, so we want to test for it. Though, due to this difference with
+-- upstream we can not keep the tests completely in sync and we add them here.
+-- Original tests are in create_index.sql
+--
+CREATE TABLE tbl_drop_ind_concur (f1 text, f2 text, dk text) distributed by (dk);
+CREATE INDEX tbl_drop_index1 ON tbl_drop_ind_concur(f2,f1);
+INSERT INTO tbl_drop_ind_concur VALUES  ('a','b', '1');
+INSERT INTO tbl_drop_ind_concur VALUES  ('b','b', '1');
+INSERT INTO tbl_drop_ind_concur VALUES  ('c','c', '2');
+INSERT INTO tbl_drop_ind_concur VALUES  ('d','d', '3');
+CREATE UNIQUE INDEX tbl_drop_index2 ON tbl_drop_ind_concur(dk, f1);
+CREATE INDEX tbl_drop_index3 on tbl_drop_ind_concur(f2) WHERE f1='a';
+CREATE INDEX tbl_drop_index4 on tbl_drop_ind_concur(f2) WHERE f1='x';
+DROP INDEX CONCURRENTLY "tbl_drop_index2";				-- works
+DROP INDEX CONCURRENTLY IF EXISTS "tbl_drop_index2";		-- notice
+NOTICE:  index "tbl_drop_index2" does not exist, skipping
+-- failures
+DROP INDEX CONCURRENTLY "tbl_drop_index2", "tbl_drop_index3";
+ERROR:  DROP INDEX CONCURRENTLY does not support dropping multiple objects
+BEGIN;
+DROP INDEX CONCURRENTLY "tbl_drop_index4";
+ERROR:  DROP INDEX CONCURRENTLY cannot run inside a transaction block
+ROLLBACK;
+-- successes
+DROP INDEX CONCURRENTLY IF EXISTS "tbl_drop_index3";
+DROP INDEX CONCURRENTLY "tbl_drop_index4";
+DROP INDEX CONCURRENTLY "tbl_drop_index1";
+\d tbl_drop_ind_concur
+Table "public.tbl_drop_ind_concur"
+ Column | Type | Modifiers 
+--------+------+-----------
+ f1     | text | 
+ f2     | text | 
+ dk     | text | 
+Distributed by: (dk)
+
+DROP TABLE tbl_drop_ind_concur;
+-- Creating UNIQUE/PRIMARY KEY index is disallowed to change the distribution
+-- keys implicitly
+CREATE TABLE tbl_create_index(i int, j int, k int) distributed by(i, j);
+-- should fail
+CREATE UNIQUE INDEX ON tbl_create_index(i);
+NOTICE:  UNIQUE index must contain all columns in the table's distribution key.
+DETAIL:  Distribution key column "j" is not included in the constraint.
+HINT:  Add "j" to the constraint with the operator.
+ERROR:  UNIQUE index must contain all columns in the distribution key of relation "tbl_create_index"
+CREATE UNIQUE INDEX ON tbl_create_index(k);
+NOTICE:  UNIQUE index must contain all columns in the table's distribution key.
+DETAIL:  Distribution key column "i" is not included in the constraint.
+HINT:  Add "i" to the constraint with the operator.
+NOTICE:  UNIQUE index must contain all columns in the table's distribution key.
+DETAIL:  Distribution key column "j" is not included in the constraint.
+HINT:  Add "j" to the constraint with the operator.
+ERROR:  UNIQUE index must contain all columns in the distribution key of relation "tbl_create_index"
+CREATE UNIQUE INDEX ON tbl_create_index(i, k);
+NOTICE:  UNIQUE index must contain all columns in the table's distribution key.
+DETAIL:  Distribution key column "j" is not included in the constraint.
+HINT:  Add "j" to the constraint with the operator.
+ERROR:  UNIQUE index must contain all columns in the distribution key of relation "tbl_create_index"
+ALTER TABLE tbl_create_index ADD CONSTRAINT PKEY PRIMARY KEY(i);
+NOTICE:  PRIMARY KEY index must contain all columns in the table's distribution key.
+DETAIL:  Distribution key column "j" is not included in the constraint.
+HINT:  Add "j" to the constraint with the operator.
+ERROR:  PRIMARY KEY must contain all columns in the distribution key of relation "tbl_create_index"
+ALTER TABLE tbl_create_index ADD CONSTRAINT PKEY PRIMARY KEY(k);
+NOTICE:  PRIMARY KEY index must contain all columns in the table's distribution key.
+DETAIL:  Distribution key column "i" is not included in the constraint.
+HINT:  Add "i" to the constraint with the operator.
+NOTICE:  PRIMARY KEY index must contain all columns in the table's distribution key.
+DETAIL:  Distribution key column "j" is not included in the constraint.
+HINT:  Add "j" to the constraint with the operator.
+ERROR:  PRIMARY KEY must contain all columns in the distribution key of relation "tbl_create_index"
+ALTER TABLE tbl_create_index ADD CONSTRAINT PKEY PRIMARY KEY(i, k);
+NOTICE:  PRIMARY KEY index must contain all columns in the table's distribution key.
+DETAIL:  Distribution key column "j" is not included in the constraint.
+HINT:  Add "j" to the constraint with the operator.
+ERROR:  PRIMARY KEY must contain all columns in the distribution key of relation "tbl_create_index"
+-- should success
+CREATE UNIQUE INDEX tbl_create_index_ij ON tbl_create_index(i, j);
+CREATE UNIQUE INDEX tbl_create_index_ijk ON tbl_create_index(i, j, k);
+\d tbl_create_index
+Table "public.tbl_create_index"
+ Column |  Type   | Modifiers 
+--------+---------+-----------
+ i      | integer | 
+ j      | integer | 
+ k      | integer | 
+Indexes:
+    "tbl_create_index_ij" UNIQUE, btree (i, j)
+    "tbl_create_index_ijk" UNIQUE, btree (i, j, k)
+Distributed by: (i, j)
+
+DROP INDEX tbl_create_index_ij;
+DROP INDEX tbl_create_index_ijk;
+ALTER TABLE tbl_create_index ADD CONSTRAINT PKEY PRIMARY KEY(i, j, k);
+\d tbl_create_index
+Table "public.tbl_create_index"
+ Column |  Type   | Modifiers 
+--------+---------+-----------
+ i      | integer | not null
+ j      | integer | not null
+ k      | integer | not null
+Indexes:
+    "pkey" PRIMARY KEY, btree (i, j, k)
+Distributed by: (i, j)
+
+ALTER TABLE tbl_create_index DROP CONSTRAINT PKEY;
+-- after changing the distribution keys, the above failed clause should success
+ALTER TABLE tbl_create_index SET DISTRIBUTED BY(k);
+CREATE UNIQUE INDEX ON tbl_create_index(k);
+CREATE UNIQUE INDEX ON tbl_create_index(i, k);
+ALTER TABLE tbl_create_index ADD CONSTRAINT PKEY PRIMARY KEY(i, k);
+\d tbl_create_index
+Table "public.tbl_create_index"
+ Column |  Type   | Modifiers 
+--------+---------+-----------
+ i      | integer | not null
+ j      | integer | not null
+ k      | integer | not null
+Indexes:
+    "pkey" PRIMARY KEY, btree (i, k)
+    "tbl_create_index_i_k_idx" UNIQUE, btree (i, k)
+    "tbl_create_index_k_idx" UNIQUE, btree (k)
+Distributed by: (k)
+
+DROP TABLE tbl_create_index;
+-- before dispatch stmt to QEs, switching user to login user,
+-- so that the connection to QEs use the same user as the connection to QD.
+-- pass the permission check of schema on QEs.
+CREATE ROLE regress_minimal;
+NOTICE:  resource queue required -- using default resource queue "pg_default"
+CREATE SCHEMA s;
+create table s.t(tc1 int);
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'tc1' as the Greenplum Database data distribution key for this table.
+HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+alter table s.t owner to regress_minimal;
+create index idx on s.t(tc1);
+--partition table
+create table s.part_table(a int, b varchar(40), c timestamp)
+partition by range (a) (start (1) end (1001) every (200));
+NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'a' as the Greenplum Database data distribution key for this table.
+HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
+NOTICE:  CREATE TABLE will create partition "part_table_1_prt_1" for table "part_table"
+NOTICE:  CREATE TABLE will create partition "part_table_1_prt_2" for table "part_table"
+NOTICE:  CREATE TABLE will create partition "part_table_1_prt_3" for table "part_table"
+NOTICE:  CREATE TABLE will create partition "part_table_1_prt_4" for table "part_table"
+NOTICE:  CREATE TABLE will create partition "part_table_1_prt_5" for table "part_table"
+alter table s.part_table owner to regress_minimal;
+create index idx_part1 on s.part_table_1_prt_2(a);
+create index idx_part on s.part_table(a);
+drop schema s cascade;
+NOTICE:  drop cascades to 2 other objects
+DETAIL:  drop cascades to table s.t
+drop cascades to table s.part_table
+drop role regress_minimal;

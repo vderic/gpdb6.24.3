@@ -1,0 +1,106 @@
+drop schema if exists misc_jiras;
+NOTICE:  schema "misc_jiras" does not exist, skipping
+create schema misc_jiras;
+--
+-- Test backward scanning of tuplestore spill files.
+--
+-- When tuplestore cannot store all the data in memory it will spill some of
+-- the data to temporary files.  In gpdb we used to disable the backward
+-- scanning from these spill files because we could not determine the tuple
+-- type, memtup or heaptup, correctly.  The issue is fixed, the backward
+-- scanning should be supported now.
+--
+create table misc_jiras.t1 (c1 int, c2 text, c3 smallint) distributed by (c1);
+insert into misc_jiras.t1 select i % 13, md5(i::text), i % 3
+  from generate_series(1, 80000) i;
+-- tuplestore in windowagg uses statement_mem to control the in-memory data size,
+-- set a small value to trigger the spilling.
+set statement_mem to '1200kB';
+-- Inject fault at 'winagg_after_spool_tuples' to show that the tuplestore spills
+-- to disk.
+select gp_inject_fault('winagg_after_spool_tuples', 'skip', dbid)
+  from gp_segment_configuration WHERE role='p' AND content>=0;
+ gp_inject_fault 
+-----------------
+ Success:
+ Success:
+ Success:
+(3 rows)
+
+select sum(cc) from (
+    select c1
+         , c2
+         , case when count(c3) = 0 then -1.0
+                else cume_dist() over (partition by c1,
+                                       case when count(c3) > 0 then 1 else 0 end
+                                       order by count(c3), c2)
+           end as cc
+      from misc_jiras.t1
+     group by 1, 2
+) tt;
+NOTICE:  winagg: tuplestore spilled to disk  (seg1 slice1 127.0.0.1:6003 pid=175883)
+NOTICE:  winagg: tuplestore spilled to disk  (seg0 slice1 127.0.0.1:6002 pid=175882)
+NOTICE:  winagg: tuplestore spilled to disk  (seg2 slice1 127.0.0.1:6004 pid=175884)
+   sum   
+---------
+ 40006.5
+(1 row)
+
+select gp_inject_fault('winagg_after_spool_tuples', 'reset', dbid)
+  from gp_segment_configuration WHERE role='p' AND content>=0;
+ gp_inject_fault 
+-----------------
+ Success:
+ Success:
+ Success:
+(3 rows)
+
+reset statement_mem;
+drop table misc_jiras.t1;
+drop schema misc_jiras;
+-- test for issue https://github.com/greenplum-db/gpdb/issues/14539
+-- the \c command to renew the session to make sure the global var
+-- NextRecordTypmod is 0. For details please refer to the issue.
+create table t_record_type_param_dispatch (a int, b int) distributed by (a);
+explain (costs off)
+with cte as (
+  select * from t_record_type_param_dispatch order by random() limit
+  ( select count(*) /2 from t_record_type_param_dispatch )
+)
+select *, case when t in (select t from cte t) then 'a' else 'b' end
+from t_record_type_param_dispatch t;
+                                                           QUERY PLAN                                                            
+---------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice4; segments: 3)
+   ->  Seq Scan on t_record_type_param_dispatch t
+         SubPlan 2  (slice4; segments: 3)
+           ->  Materialize
+                 ->  Broadcast Motion 1:3  (slice3; segments: 1)
+                       ->  Subquery Scan on t_1
+                             ->  Limit
+                                   InitPlan 1 (returns $0)  (slice5)
+                                     ->  Aggregate
+                                           ->  Gather Motion 3:1  (slice2; segments: 3)
+                                                 ->  Aggregate
+                                                       ->  Seq Scan on t_record_type_param_dispatch
+                                   ->  Gather Motion 3:1  (slice1; segments: 3)
+                                         Merge Key: (random())
+                                         ->  Limit
+                                               ->  Sort
+                                                     Sort Key: (random())
+                                                     ->  Seq Scan on t_record_type_param_dispatch t_record_type_param_dispatch_1
+ Optimizer: Postgres query optimizer
+(19 rows)
+
+\c
+with cte as (
+  select * from t_record_type_param_dispatch order by random() limit
+  ( select count(*) /2 from t_record_type_param_dispatch )
+)
+select *, case when t in (select t from cte t) then 'a' else 'b' end
+from t_record_type_param_dispatch t;
+ a | b | case 
+---+---+------
+(0 rows)
+
+drop table t_record_type_param_dispatch;

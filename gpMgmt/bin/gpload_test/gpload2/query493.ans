@@ -1,0 +1,200 @@
+TRUNCATE TABLE
+2022-02-25 15:39:37|INFO|gpload session started 2022-02-25 15:39:37
+2022-02-25 15:39:37|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:37|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_01.txt" -t 30
+2022-02-25 15:39:37|INFO|did not find an external table to reuse. creating ext_gpload_reusable_1541491e_960e_11ec_9148_0050569ea4ff
+2022-02-25 15:39:37|INFO|running time: 0.05 seconds
+2022-02-25 15:39:37|INFO|rows Inserted          = 9
+2022-02-25 15:39:37|INFO|rows Updated           = 0
+2022-02-25 15:39:37|INFO|data formatting errors = 0
+2022-02-25 15:39:37|INFO|gpload succeeded
+2022-02-25 15:39:37|INFO|gpload session started 2022-02-25 15:39:37
+2022-02-25 15:39:37|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:37|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_target.txt" -t 30
+2022-02-25 15:39:37|INFO|did not find a staging table to reuse. creating staging_gpload_reusable_bf2513bc4e5c7466f3cd5abecf21f8f4
+2022-02-25 15:39:37|INFO|did not find an external table to reuse. creating ext_gpload_reusable_155b6ee8_960e_11ec_ae55_0050569ea4ff
+2022-02-25 15:39:37|INFO|running time: 0.06 seconds
+2022-02-25 15:39:37|INFO|rows Inserted          = 0
+2022-02-25 15:39:37|INFO|rows Updated           = 9
+2022-02-25 15:39:37|INFO|data formatting errors = 0
+2022-02-25 15:39:37|INFO|gpload succeeded
+ count 
+-------
+     9
+(1 row)
+
+TRUNCATE TABLE
+2022-02-25 15:39:37|INFO|gpload session started 2022-02-25 15:39:37
+2022-02-25 15:39:37|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:37|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_01.txt" -t 30
+2022-02-25 15:39:37|INFO|reusing external table ext_gpload_reusable_1541491e_960e_11ec_9148_0050569ea4ff
+2022-02-25 15:39:37|INFO|running time: 0.04 seconds
+2022-02-25 15:39:37|INFO|rows Inserted          = 9
+2022-02-25 15:39:37|INFO|rows Updated           = 0
+2022-02-25 15:39:37|INFO|data formatting errors = 0
+2022-02-25 15:39:37|INFO|gpload succeeded
+2022-02-25 15:39:37|INFO|gpload session started 2022-02-25 15:39:37
+2022-02-25 15:39:37|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:37|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_target.txt" -t 30
+2022-02-25 15:39:37|INFO|reusing staging table staging_gpload_reusable_bf2513bc4e5c7466f3cd5abecf21f8f4
+2022-02-25 15:39:37|INFO|reusing external table ext_gpload_reusable_155b6ee8_960e_11ec_ae55_0050569ea4ff
+2022-02-25 15:39:37|INFO|running time: 0.06 seconds
+2022-02-25 15:39:37|INFO|rows Inserted          = 0
+2022-02-25 15:39:37|INFO|rows Updated           = 9
+2022-02-25 15:39:37|INFO|data formatting errors = 0
+2022-02-25 15:39:37|INFO|gpload succeeded
+ count 
+-------
+     9
+(1 row)
+
+TRUNCATE TABLE
+2022-02-25 15:39:37|INFO|gpload session started 2022-02-25 15:39:37
+2022-02-25 15:39:37|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:37|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_01.txt" -t 30
+2022-02-25 15:39:37|INFO|reusing external table ext_gpload_reusable_1541491e_960e_11ec_9148_0050569ea4ff
+2022-02-25 15:39:37|INFO|running time: 0.04 seconds
+2022-02-25 15:39:37|INFO|rows Inserted          = 9
+2022-02-25 15:39:37|INFO|rows Updated           = 0
+2022-02-25 15:39:37|INFO|data formatting errors = 0
+2022-02-25 15:39:37|INFO|gpload succeeded
+2022-02-25 15:39:38|INFO|gpload session started 2022-02-25 15:39:38
+2022-02-25 15:39:38|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:38|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_target.txt" -t 30
+2022-02-25 15:39:38|INFO|reusing staging table staging_gpload_reusable_bf2513bc4e5c7466f3cd5abecf21f8f4
+2022-02-25 15:39:38|INFO|reusing external table ext_gpload_reusable_155b6ee8_960e_11ec_ae55_0050569ea4ff
+2022-02-25 15:39:38|INFO|running time: 0.05 seconds
+2022-02-25 15:39:38|INFO|rows Inserted          = 0
+2022-02-25 15:39:38|INFO|rows Updated           = 9
+2022-02-25 15:39:38|INFO|data formatting errors = 0
+2022-02-25 15:39:38|INFO|gpload succeeded
+ count 
+-------
+     9
+(1 row)
+
+TRUNCATE TABLE
+2022-02-25 15:39:38|INFO|gpload session started 2022-02-25 15:39:38
+2022-02-25 15:39:38|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:38|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_01.txt" -t 30
+2022-02-25 15:39:38|INFO|reusing external table ext_gpload_reusable_1541491e_960e_11ec_9148_0050569ea4ff
+2022-02-25 15:39:38|INFO|running time: 0.04 seconds
+2022-02-25 15:39:38|INFO|rows Inserted          = 9
+2022-02-25 15:39:38|INFO|rows Updated           = 0
+2022-02-25 15:39:38|INFO|data formatting errors = 0
+2022-02-25 15:39:38|INFO|gpload succeeded
+2022-02-25 15:39:38|INFO|gpload session started 2022-02-25 15:39:38
+2022-02-25 15:39:38|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:38|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_target.txt" -t 30
+2022-02-25 15:39:38|INFO|reusing staging table staging_gpload_reusable_bf2513bc4e5c7466f3cd5abecf21f8f4
+2022-02-25 15:39:38|INFO|reusing external table ext_gpload_reusable_155b6ee8_960e_11ec_ae55_0050569ea4ff
+2022-02-25 15:39:38|INFO|running time: 0.05 seconds
+2022-02-25 15:39:38|INFO|rows Inserted          = 0
+2022-02-25 15:39:38|INFO|rows Updated           = 9
+2022-02-25 15:39:38|INFO|data formatting errors = 0
+2022-02-25 15:39:38|INFO|gpload succeeded
+ count 
+-------
+     9
+(1 row)
+
+TRUNCATE TABLE
+2022-02-25 15:39:38|INFO|gpload session started 2022-02-25 15:39:38
+2022-02-25 15:39:38|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:38|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_01.txt" -t 30
+2022-02-25 15:39:38|INFO|reusing external table ext_gpload_reusable_1541491e_960e_11ec_9148_0050569ea4ff
+2022-02-25 15:39:38|INFO|running time: 0.04 seconds
+2022-02-25 15:39:38|INFO|rows Inserted          = 9
+2022-02-25 15:39:38|INFO|rows Updated           = 0
+2022-02-25 15:39:38|INFO|data formatting errors = 0
+2022-02-25 15:39:38|INFO|gpload succeeded
+2022-02-25 15:39:38|INFO|gpload session started 2022-02-25 15:39:38
+2022-02-25 15:39:38|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:38|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_target.txt" -t 30
+2022-02-25 15:39:38|INFO|reusing staging table staging_gpload_reusable_bf2513bc4e5c7466f3cd5abecf21f8f4
+2022-02-25 15:39:38|INFO|reusing external table ext_gpload_reusable_155b6ee8_960e_11ec_ae55_0050569ea4ff
+2022-02-25 15:39:38|INFO|running time: 0.05 seconds
+2022-02-25 15:39:38|INFO|rows Inserted          = 0
+2022-02-25 15:39:38|INFO|rows Updated           = 9
+2022-02-25 15:39:38|INFO|data formatting errors = 0
+2022-02-25 15:39:38|INFO|gpload succeeded
+ count 
+-------
+     9
+(1 row)
+
+TRUNCATE TABLE
+2022-02-25 15:39:38|INFO|gpload session started 2022-02-25 15:39:38
+2022-02-25 15:39:38|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:38|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_01.txt" -t 30
+2022-02-25 15:39:38|INFO|reusing external table ext_gpload_reusable_1541491e_960e_11ec_9148_0050569ea4ff
+2022-02-25 15:39:38|INFO|running time: 0.04 seconds
+2022-02-25 15:39:38|INFO|rows Inserted          = 9
+2022-02-25 15:39:38|INFO|rows Updated           = 0
+2022-02-25 15:39:38|INFO|data formatting errors = 0
+2022-02-25 15:39:38|INFO|gpload succeeded
+2022-02-25 15:39:39|INFO|gpload session started 2022-02-25 15:39:39
+2022-02-25 15:39:39|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:39|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_target.txt" -t 30
+2022-02-25 15:39:39|INFO|reusing staging table staging_gpload_reusable_bf2513bc4e5c7466f3cd5abecf21f8f4
+2022-02-25 15:39:39|INFO|reusing external table ext_gpload_reusable_155b6ee8_960e_11ec_ae55_0050569ea4ff
+2022-02-25 15:39:39|INFO|running time: 0.05 seconds
+2022-02-25 15:39:39|INFO|rows Inserted          = 0
+2022-02-25 15:39:39|INFO|rows Updated           = 9
+2022-02-25 15:39:39|INFO|data formatting errors = 0
+2022-02-25 15:39:39|INFO|gpload succeeded
+ count 
+-------
+     9
+(1 row)
+
+TRUNCATE TABLE
+2022-02-25 15:39:39|INFO|gpload session started 2022-02-25 15:39:39
+2022-02-25 15:39:39|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:39|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_01.txt" -t 30
+2022-02-25 15:39:39|INFO|reusing external table ext_gpload_reusable_1541491e_960e_11ec_9148_0050569ea4ff
+2022-02-25 15:39:39|INFO|running time: 0.04 seconds
+2022-02-25 15:39:39|INFO|rows Inserted          = 9
+2022-02-25 15:39:39|INFO|rows Updated           = 0
+2022-02-25 15:39:39|INFO|data formatting errors = 0
+2022-02-25 15:39:39|INFO|gpload succeeded
+2022-02-25 15:39:39|INFO|gpload session started 2022-02-25 15:39:39
+2022-02-25 15:39:39|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:39|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_target.txt" -t 30
+2022-02-25 15:39:39|INFO|reusing staging table staging_gpload_reusable_bf2513bc4e5c7466f3cd5abecf21f8f4
+2022-02-25 15:39:39|INFO|reusing external table ext_gpload_reusable_155b6ee8_960e_11ec_ae55_0050569ea4ff
+2022-02-25 15:39:39|INFO|running time: 0.05 seconds
+2022-02-25 15:39:39|INFO|rows Inserted          = 0
+2022-02-25 15:39:39|INFO|rows Updated           = 9
+2022-02-25 15:39:39|INFO|data formatting errors = 0
+2022-02-25 15:39:39|INFO|gpload succeeded
+ count 
+-------
+     9
+(1 row)
+
+TRUNCATE TABLE
+2022-02-25 15:39:39|INFO|gpload session started 2022-02-25 15:39:39
+2022-02-25 15:39:39|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:39|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_01.txt" -t 30
+2022-02-25 15:39:39|INFO|reusing external table ext_gpload_reusable_1541491e_960e_11ec_9148_0050569ea4ff
+2022-02-25 15:39:39|INFO|running time: 0.04 seconds
+2022-02-25 15:39:39|INFO|rows Inserted          = 9
+2022-02-25 15:39:39|INFO|rows Updated           = 0
+2022-02-25 15:39:39|INFO|data formatting errors = 0
+2022-02-25 15:39:39|INFO|gpload succeeded
+2022-02-25 15:39:39|INFO|gpload session started 2022-02-25 15:39:39
+2022-02-25 15:39:39|INFO|setting schema 'public' for table 'texttable'
+2022-02-25 15:39:39|INFO|started gpfdist -p 8081 -P 8082 -f "/home/gpadmin/workspace/gpdb/gpMgmt/bin/gpload_test/gpload2/data/column_match_target.txt" -t 30
+2022-02-25 15:39:39|INFO|reusing staging table staging_gpload_reusable_bf2513bc4e5c7466f3cd5abecf21f8f4
+2022-02-25 15:39:39|INFO|reusing external table ext_gpload_reusable_155b6ee8_960e_11ec_ae55_0050569ea4ff
+2022-02-25 15:39:39|INFO|running time: 0.05 seconds
+2022-02-25 15:39:39|INFO|rows Inserted          = 0
+2022-02-25 15:39:39|INFO|rows Updated           = 9
+2022-02-25 15:39:39|INFO|data formatting errors = 0
+2022-02-25 15:39:39|INFO|gpload succeeded
+ count 
+-------
+     9
+(1 row)
+
