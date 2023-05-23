@@ -173,7 +173,10 @@ DefineExternalRelation(CreateExternalStmt *createExtStmt)
 							 errmsg("role \"%s\" does not exist (in DefineExternalRelation)",
 									GetUserNameFromId(userid))));
 
-				if ((uri->protocol == URI_GPFDIST || uri->protocol == URI_GPFDISTS) && iswritable)
+				/*
+				 * EXX_IN_PG: Kite use same permission as gpfdist.
+				 */
+				if ((uri->protocol == URI_GPFDIST || uri->protocol == URI_GPFDISTS || uri->protocol == URI_KITE || uri->protocol == URI_KITEQTY) && iswritable)
 				{
 					Datum	 	d_wextgpfd;
 					bool		createwextgpfd;
@@ -679,11 +682,18 @@ transformFormatType(char *formatname)
 		result = 'c';
 	else if (pg_strcasecmp(formatname, "custom") == 0)
 		result = 'b';
+	/* EXX_IN_PG */
+	else if (pg_strcasecmp(formatname, "parquet") == 0)
+		result = 'p';
+	else if (pg_strcasecmp(formatname, "orc") == 0)
+		result = 'o';
+	else if (pg_strcasecmp(formatname, "xrg") == 0)
+		result = 'x';
 	else
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("unsupported format '%s'", formatname),
-				 errhint("Available formats for external tables are \"text\", \"csv\" and \"custom\".")));
+				 errhint("Available formats for external tables are \"text\", \"csv\", \"parquet\", \"orc\", \"xrg\" and \"custom\".")));
 
 	return result;
 }
@@ -735,12 +745,20 @@ transformFormatOpts(char formattype, List *formatOpts, int numcols, bool iswrita
 	char	   *formatter = NULL;
 	StringInfoData cfbuf;
 
+	/* EXX_IN_PG */
+	bool exx_intts = false;
+	char *exx_comment = NULL;
+
 	CopyState cstate = palloc0(sizeof(CopyStateData));
 
 	Assert(fmttype_is_custom(formattype) ||
 		   fmttype_is_text(formattype) ||
-		   fmttype_is_csv(formattype));
-
+		   fmttype_is_csv(formattype) ||
+	       /* EXX_IN_PG */
+	       fmttype_is_xrg_par_orc(formattype) ||
+	       fmttype_is_parquet(formattype) ||
+	       fmttype_is_orc(formattype));
+		   
 	/* Extract options from the statement node tree */
 	if (fmttype_is_text(formattype) || fmttype_is_csv(formattype))
 	{
@@ -765,6 +783,23 @@ transformFormatOpts(char formattype, List *formatOpts, int numcols, bool iswrita
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
 						 errmsg("formatter option only valid for custom formatters")));
+			}
+			/* EXX_IN_PG */
+			else if (strcmp(defel->defname, "using_intts") == 0) {
+				if (exx_intts) {
+					ereport(ERROR,
+								(errcode(ERRCODE_SYNTAX_ERROR),
+								errmsg("conflicting or redundant options")));
+				}
+				exx_intts = intVal(defel->arg);
+			}
+			else if (strcmp(defel->defname, "comment") == 0) {
+				if (exx_comment) { 
+					ereport(ERROR,
+								(errcode(ERRCODE_SYNTAX_ERROR),
+								errmsg("conflicting or redundant options")));
+				}
+				exx_comment = strVal(defel->arg); 
 			}
 			else
 				elog(ERROR, "option \"%s\" not recognized",
@@ -852,7 +887,31 @@ transformFormatOpts(char formattype, List *formatOpts, int numcols, bool iswrita
 		if (cstate->eol_str)
 			appendStringInfo(&cfbuf, " newline '%s'", cstate->eol_str);
 
+		/* EXX_IN_PG */
+		if (exx_intts)
+			appendStringInfo(&cfbuf, " integer timestamp");
+
+		if (exx_comment) {
+			if (*exx_comment == '\'') {
+				appendStringInfo(&cfbuf, " comment '''''");
+			} else {
+				appendStringInfo(&cfbuf, " comment '%c'", *exx_comment);
+			}
+		}
+
 		format_str = cfbuf.data;
+	}
+	/* EXX_IN_PG -- overrided gphdfs parquet support */
+	else if (fmttype_is_xrg_par_orc(formattype)) {
+		char *val = NULL;
+		if (iswritable) {
+			val = "kite_export";
+		} else {
+			val = "kite_import";
+		}
+		const int maxlen = 32;
+		format_str = (char *) palloc0(maxlen + 1);
+		sprintf(format_str, "%s '%s' ", "formatter", val);
 	}
 	else
 	{

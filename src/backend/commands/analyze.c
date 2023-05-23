@@ -89,6 +89,7 @@
 #include "catalog/pg_collation.h"
 #include "catalog/pg_inherits_fn.h"
 #include "catalog/pg_namespace.h"
+#include "catalog/pg_exttable.h"
 #include "commands/dbcommands.h"
 #include "commands/tablecmds.h"
 #include "commands/vacuum.h"
@@ -134,6 +135,8 @@
 #include "utils/hyperloglog/gp_hyperloglog.h"
 #include "utils/snapmgr.h"
 
+/* EXX_IN_PG */
+#include "exx/exx.h"
 
 /*
  * For Hyperloglog, we define an error margin of 0.3%. If the number of
@@ -205,6 +208,11 @@ static void analyze_rel_internal(Oid relid, VacuumStmt *vacstmt,
 			bool in_outer_xact, BufferAccessStrategy bstrategy);
 static void acquire_hll_by_query(Relation onerel, int nattrs, VacAttrStats **attrstats, int elevel);
 
+/* EXX_IN_PG */
+static int acquire_sample_rows_by_kite(Relation onerel, int elevel, int nattrs, VacAttrStats **attrstats,
+			HeapTuple *rows, int targrows,
+			double *totalrows, double *totaldeadrows);
+
 /*
  *	analyze_rel() -- analyze one relation
  */
@@ -237,6 +245,98 @@ analyze_rel(Oid relid, VacuumStmt *vacstmt,
 	PG_END_TRY();
 
 	optimizer = optimizerBackup;
+}
+
+/* EXX_IN_PG */
+extern bool exx_external_kite_analyzable(Relation rel, List *locs, char fmt);
+static bool exx_ext_analyzable(Relation relation)
+{
+    if (!RelationIsExternal(relation)) {
+        return false;
+    }
+
+    Oid relationOid = RelationGetRelid(relation);
+    ExtTableEntry *extentry = GetExtTableEntry(relationOid);
+
+    if (extentry) {
+        /*
+         * Do not analyze writable ext.
+         */
+        if (extentry->iswritable) {
+            return false;
+        }
+
+        /*
+         * EXX:
+         * Quick dirty way to decide if it is loftd table.   Should have used parseFormatString
+         * as in fimeam.c, but good enough is enough.
+         */
+        if (extentry->fmtopts && strcasestr(extentry->fmtopts, "vitesse_spq_formatter_in") != NULL) {
+            return true;
+        } else {
+            /*
+             * Try XDrive.   If it is not kite protocol, it will return false and we will
+             * skip analyzing this table later.
+             */
+            return exx_external_kite_analyzable(relation, extentry->urilocations, extentry->fmtcode);
+        }
+    }
+    return false;
+}
+
+static void GetExternalNumberOfBlocks(Relation onerel, BlockNumber *totalblocks, double *totalrows) {
+	int ret = 0;
+	const char *schemaName = NULL;
+	const char *tableName = NULL;
+	float4          relTuples;
+        float4          relPages;
+        schemaName = get_namespace_name(RelationGetNamespace(onerel));
+        tableName = RelationGetRelationName(onerel);
+
+        relTuples = 1000000;
+        relPages = 1000;
+
+        /*
+         * For spq case, let's get real stats.
+         */
+        ExtTableEntry *extentry = GetExtTableEntry(RelationGetRelid(onerel));
+        if (extentry) {
+		/*
+                 * The following code is copy pasted from below -- but why, why upstream removed
+                 * all those simple query execution code and we have to do these manual execution?
+                 */
+		if (SPI_OK_CONNECT != SPI_connect()) {
+			ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
+				errmsg("Unable to connect to execute internal query.")));
+		}
+
+		char qry[1024];
+		snprintf(qry, 1024, "select count(*) from %s.%s", quote_identifier(schemaName), quote_identifier(tableName));
+
+		ret = SPI_execute(qry, false, 0);
+		if (ret < 0) {
+			elog(ERROR, "Analyze executing sql using SPI failed.");
+		}
+
+		if (SPI_processed > 0) {
+			Assert(SPI_processed == 1);
+			HeapTuple       sampletup = SPI_tuptable->vals[0];
+			Datum cnt = 0;
+			bool isn = true;
+			cnt = heap_getattr(sampletup, 1, SPI_tuptable->tupdesc, &isn);
+			if (!isn) {
+				relTuples = (float) cnt;
+				relPages = relTuples / 200.0;
+				if (relPages < 1.0) {
+					relPages = 1.0;
+				}
+			}
+		}
+		SPI_finish();
+	}
+
+	*totalrows = relTuples;
+	*totalblocks = relPages;
 }
 
 static void
@@ -361,9 +461,10 @@ analyze_rel_internal(Oid relid, VacuumStmt *vacstmt,
 	 * used to do this in get_rel_oids() but seems safer to check after we've
 	 * locked the relation.
 	 */
+	 /* EXX_IN_PG */
 	if ((onerel->rd_rel->relkind == RELKIND_RELATION ||
-		 onerel->rd_rel->relkind == RELKIND_MATVIEW) &&
-		!RelationIsExternal(onerel))
+		 onerel->rd_rel->relkind == RELKIND_MATVIEW) ||
+		(RelationIsExternal(onerel) && exx_ext_analyzable(onerel)))
 	{
 		/* Regular table, so we'll use the regular row acquisition function */
 		acquirefunc = acquire_sample_rows;
@@ -703,14 +804,20 @@ do_analyze_rel(Relation onerel, VacuumStmt *vacstmt,
 		 * to avoid changing the function signature from upstream's.
 		 */
 		acquire_func_colLargeRowIndexes = colLargeRowIndexes;
-		if (inh)
+		if (inh) {
 			numrows = acquire_inherited_sample_rows(onerel, elevel,
 													rows, targrows,
 													&totalrows, &totaldeadrows);
-		else
+		} else if (RelationIsExternal(onerel)) {
+			/* EXX_IN_PG */
+			numrows = acquire_sample_rows_by_kite(onerel, elevel, attr_cnt, vacattrstats,
+									  rows, targrows,
+									  &totalrows, &totaldeadrows);
+		} else {
 			numrows = (*acquirefunc) (onerel, elevel,
 									  rows, targrows,
 									  &totalrows, &totaldeadrows);
+		}
 		acquire_func_colLargeRowIndexes = NULL;
 	}
 	else
@@ -1856,6 +1963,216 @@ acquire_sample_rows_ao(Relation onerel, int elevel,
 }
 
 /*
+ * EXX_IN_PG
+ *
+ */
+static int
+acquire_sample_rows_by_kite(Relation onerel, int elevel, int attr_cnt, VacAttrStats **attrstats,
+                                                 HeapTuple *rows, int targrows,
+                                                 double *totalrows, double *totaldeadrows) {
+
+	Bitmapset **colLargeRowIndexes = acquire_func_colLargeRowIndexes;
+        StringInfoData str;
+        StringInfoData columnStr;
+	StringInfoData thresholdStr;
+	float4 randomThreshold = 0.0;
+        int i;
+        const char *schemaName = NULL;
+        const char *tableName = NULL;
+	int ret;
+	int sampleTuples;
+        Datum      *vals;
+        bool       *nulls;
+        MemoryContext oldcxt;
+        Assert(targrows > 0.0);
+
+
+        schemaName = get_namespace_name(RelationGetNamespace(onerel));
+        tableName = RelationGetRelationName(onerel);
+
+	BlockNumber relpage = 0;
+	double relTuples = 0;
+	GetExternalNumberOfBlocks(onerel, &relpage, &relTuples);
+
+	*totalrows = relTuples;
+	*totaldeadrows = 0;
+
+	if (relTuples == 0.0) {
+		return 0;
+	}
+
+        bool       *isVarlenaCol = (bool *) palloc(sizeof(bool)*attr_cnt);
+
+	initStringInfo(&thresholdStr);
+        /*
+         * Calculate probability for a row to be selected in the sample, and
+         * construct a clause like "WHERE random() < [threshold]" for that.
+         * If the threshold is >= 1.0, we want to select all rows, and
+         * thresholdStr is left empty.
+         */
+        randomThreshold = targrows / relTuples * 100;
+        initStringInfo(&thresholdStr);
+        if (randomThreshold < 1.0) {
+                appendStringInfo(&thresholdStr, "where random() < %.38f", randomThreshold);
+	}
+
+	initStringInfo(&columnStr);
+
+        if (attr_cnt > 0)
+        {
+                for (i = 0; i < attr_cnt; i++)
+                {
+                        isVarlenaCol[i] = false;
+                        const char *attname = quote_identifier(NameStr(attrstats[i]->attr->attname));
+                        bool is_text = (attrstats[i]->attr->atttypid == TEXTOID ||
+                                                        attrstats[i]->attr->atttypid == VARCHAROID ||
+                                                        attrstats[i]->attr->atttypid == BPCHAROID ||
+                                                        attrstats[i]->attr->atttypid == BYTEAOID);
+                        bool is_varlena = (!attrstats[i]->attr->attbyval &&
+                                                                          attrstats[i]->attr->attlen == -1);
+                        bool is_varwidth = (!attrstats[i]->attr->attbyval &&
+                                                                           attrstats[i]->attr->attlen < 0);
+                        bool is_numeric = attrstats[i]->attr->atttypid == NUMERICOID;
+
+                        if (is_text)
+                        {
+                                // For text types and similar types where we can apply the substring function,
+                                // truncate the value at WIDTH_THRESHOLD, to limit the amount of memory
+                                // consumed by this value. Note that this should be more than enough to
+                                // build bucket boundaries and that usually it will also be enough to compute
+                                // reasonable NDV estimates. It will, however, result in an artificially low
+                                // average width estimate for the column (similar to the varlena case below).
+                                appendStringInfo(&columnStr,
+                                                                 "substring(Ta.%s, 1, %d) as %s",
+                                                                 attname,
+                                                                 WIDTH_THRESHOLD,
+                                                                 attname);
+
+                        }
+                        // numeric can be safely ignored while considering large varlen type.
+                        else if (!is_numeric && (is_varlena || is_varwidth))
+                        {
+                                appendStringInfo(&columnStr,
+                                                                 "(case when pg_column_size(Ta.%s) > %d then NULL else Ta.%s  end) as %s, ",
+                                                                 attname,
+                                                                 WIDTH_THRESHOLD,
+                                                                 attname,
+                                                                 attname);
+                                appendStringInfo(&columnStr,
+                                                                 "(case when Ta.%s is NULL then %s else %s end)",
+                                                                 attname,
+                                                                 "false", // Less than WIDTH_THRESHOLD
+                                                                 "true"); // Greater than WIDTH_THRESHOLD
+                                isVarlenaCol[i] = true;
+                        }
+                        else
+                        {
+                                appendStringInfo(&columnStr, "Ta.%s ", attname);
+                        }
+
+                        if (i != attr_cnt - 1 )
+                        {
+                                appendStringInfo(&columnStr, ", ");
+                        }
+                }
+        }
+        else
+        {
+                appendStringInfo(&columnStr, "NULL");
+        }
+
+	initStringInfo(&str);
+	appendStringInfo(&str, "select %s from %s.%s as Ta %s limit %lu ",
+                                                 columnStr.data,
+                                                 quote_identifier(schemaName),
+                                                 quote_identifier(tableName), thresholdStr.data, (unsigned long) targrows);
+
+
+	oldcxt = CurrentMemoryContext;
+
+        if (SPI_OK_CONNECT != SPI_connect()) {
+                ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
+                                                errmsg("Unable to connect to execute internal query.")));
+	}
+	elog(elevel, "Execute SQL: %s", str.data);
+
+        /*
+         * Do the query. We pass readonly==false, to force SPI to take a new
+         * snapshot. That ensures that we see all changes by our own transaction.
+         */
+        ret = SPI_execute(str.data, false, 0);
+        if (ret < 0) {
+                elog(ERROR, "Analyze executing sql using SPI failed.");
+        }
+        sampleTuples = SPI_processed;
+
+        /* Ok, read in the tuples to *rows */
+        MemoryContextSwitchTo(oldcxt);
+        vals = (Datum *) palloc(RelationGetNumberOfAttributes(onerel) * sizeof(Datum));
+        nulls = (bool *) palloc(RelationGetNumberOfAttributes(onerel) * sizeof(bool));
+        for (i = 0; i < RelationGetNumberOfAttributes(onerel); i++)
+        {
+                vals[i] = (Datum) 0;
+                nulls[i] = true;
+        }
+
+	elog(elevel, "sample Tuples = %d", sampleTuples);
+        for (i = 0; i < sampleTuples; i++)
+        {
+                HeapTuple       sampletup = SPI_tuptable->vals[i];
+                int                     j;
+                int                     index = 0;
+
+                for (j = 0; j < attr_cnt; j++)
+                {
+                        int     tupattnum = attrstats[j]->tupattnum;
+                        Assert(tupattnum >= 1 && tupattnum <= RelationGetNumberOfAttributes(onerel));
+
+                        vals[tupattnum - 1] = heap_getattr(sampletup, index + 1,
+                                                                                           SPI_tuptable->tupdesc,
+                                                                                           &nulls[tupattnum - 1]);
+			if (isVarlenaCol[j]) {
+				index++;
+				if (nulls[tupattnum-1]) {
+					bool dummyNull = false;
+					Datum dummyVal = heap_getattr(sampletup, index + 1,
+							SPI_tuptable->tupdesc,
+							&dummyNull);
+                                        /*
+                                         * If Datum is too large, mark the index position as true
+                                         * and increase the too wide count
+                                         */
+                                        if (DatumGetInt32(dummyVal))
+                                        {
+                                                colLargeRowIndexes[j] = bms_add_member(colLargeRowIndexes[j], i);
+                                        }
+				}
+			}
+			index++;
+                }
+                rows[i] = heap_form_tuple(onerel->rd_att, vals, nulls);
+        }
+
+#if 0
+        /**
+         * MPP-10723: Very rarely, we may be unlucky and get an empty sample. We
+         * error out in this case rather than generate bad statistics.
+         */
+        if (relTuples > gp_statistics_sampling_threshold &&
+                sampleTuples == 0)
+        {
+                elog(ERROR, "ANALYZE unable to generate accurate statistics on table %s.%s. Try lowering gp_analyze_relative_error",
+                         quote_identifier(schemaName),
+                         quote_identifier(tableName));
+        }
+#endif
+
+        SPI_finish();
+
+	return sampleTuples;
+}
+
+/*
  * Acquire a sample of rows.
  *
  * In GPDB, this is just a thin wrapper to route to the appropriate
@@ -1867,7 +2184,7 @@ acquire_sample_rows(Relation onerel, int elevel,
 					double *totalrows, double *totaldeadrows)
 {
 	if (Gp_role == GP_ROLE_DISPATCH &&
-		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy))
+		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy) && !RelationIsExternal(onerel))
 	{
 		/* Fetch sample from the segments. */
 		return acquire_sample_rows_dispatcher(onerel, false, elevel,
@@ -2300,7 +2617,7 @@ acquire_number_of_blocks(Relation onerel)
 	int64		totalbytes;
 
 	if (Gp_role == GP_ROLE_DISPATCH &&
-		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy))
+		onerel->rd_cdbpolicy && !GpPolicyIsEntry(onerel->rd_cdbpolicy) && !RelationIsExternal(onerel))
 	{
 		/* Query the segments using pg_relation_size(<rel>). */
 		char		relsize_sql[100];
@@ -2336,6 +2653,18 @@ acquire_number_of_blocks(Relation onerel)
 	{
 		totalbytes = GetAOCSTotalBytes(onerel, GetActiveSnapshot(), true);
 		return RelationGuessNumberOfBlocks(totalbytes);
+	}
+	else if (RelationIsExternal(onerel)) 
+	{
+		/* EXX_IN_PG */
+		double totalrows = 0;
+		BlockNumber totalblocks = 0;
+		GetExternalNumberOfBlocks(onerel, &totalblocks, &totalrows);
+		return totalblocks;
+#if 0
+		// give a fake number and wait for acquire_sample_rows_by_kite to get real stats.
+		return 1000.0;
+#endif
 	}
 	else
 		elog(ERROR, "unsupported table type");

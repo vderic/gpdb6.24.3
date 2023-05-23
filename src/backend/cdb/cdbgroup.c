@@ -392,7 +392,9 @@ static Plan *add_subqueryscan(PlannerInfo *root, List **p_pathkeys,
 static List *seq_tlist_concat(List *tlist1, List *tlist2);
 static Node *finalize_split_expr(Node *expr, MppGroupContext *ctx);
 static Node *finalize_split_expr_mutator(Node *node, MppGroupContext *ctx);
-static Oid	lookup_agg_transtype(Aggref *aggref);
+
+/* EXX_IN_PG: expost this function static -> extern */
+extern Oid	lookup_agg_transtype(Aggref *aggref);
 static bool hash_safe_type(Oid type);
 static bool sorting_prefixes_grouping(PlannerInfo *root);
 
@@ -4526,12 +4528,13 @@ finalize_split_expr_mutator(Node *node, MppGroupContext *ctx)
 }
 
 
+/* EXX_IN_PG - static to extern */
 /* Function lookup_agg_transtype
  *
  * Return the transition type Oid of the given aggregate function or throw
  * an error, if none.
  */
-static Oid
+Oid
 lookup_agg_transtype(Aggref *aggref)
 {
 	Oid			aggid = aggref->aggfnoid;

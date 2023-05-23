@@ -19,7 +19,8 @@ include $(top_builddir)/src/Makefile.global
 
 SUBDIRS = access bootstrap catalog parser commands executor foreign \
 	fts lib libpq main nodes optimizer port postmaster regex \
-	replication rewrite storage tcop tsearch utils $(top_builddir)/src/timezone cdb
+	replication rewrite storage tcop tsearch utils $(top_builddir)/src/timezone cdb \
+    exx exx/dep exx/util exx/xrg
 
 ifeq ($(enable_orca),yes)
 SUBDIRS += gporca gpopt
@@ -53,8 +54,20 @@ LIBS := $(filter-out -lpgport -lpgcommon, $(LIBS)) $(LDAP_LIBS_BE)
 # The backend doesn't need everything that's in LIBS, however
 LIBS := $(filter-out -lreadline -ledit -ltermcap -lncurses -lcurses, $(LIBS))
 
+EXXLIBS += -L$(DG_ENV_DIR)/kite/ext/lib
+EXXLIBS += -L$(DG_ENV_DIR)/ext/installed/lib
+EXXLIBS += -L$(top_builddir)/../xdrive/build/lib
+ifeq ($(uname_p),aarch64)
+EXXLIBS += -lzstd
+else
+EXXLIBS += -lzstd
+endif
+EXXLIBS += -lkitesdk -levent -lsproto -lxrg -lxexpr
+EXXLIBS += -lz -lssl -lcrypto -llz4
+EXXLIBS += `bash checklib.sh`
+
 # Greenplum uses threads in the backend
-LIBS := $(LIBS) -lpthread
+LIBS := $(LIBS) $(EXXLIBS) -lpthread
 
 ##########################################################################
 

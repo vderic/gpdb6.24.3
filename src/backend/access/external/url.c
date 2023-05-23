@@ -22,6 +22,12 @@ int readable_external_table_timeout = 0;
 int gpfdist_retry_timeout = 300;
 
 /*
+ * EXX_IN_PG
+ * 
+ * ALL Kite related below
+ */
+
+/*
  * url_fopen
  *
  * checks for URLs or types in the 'url' and basically use the real fopen() for
@@ -43,6 +49,8 @@ url_fopen(char *url, bool forwrite, extvar_t *ev, CopyState pstate, ExternalSele
 		return url_file_fopen(url, forwrite, ev, pstate);
 	else if (IS_HTTP_URI(url) || IS_GPFDIST_URI(url) || IS_GPFDISTS_URI(url))
 		return url_curl_fopen(url, forwrite, ev, pstate);
+	else if (IS_KITE_URL(url))
+		return url_kite_fopen(url, forwrite, ev, pstate);
 	else
 		return url_custom_fopen(url, forwrite, ev, pstate, desc);
 }
@@ -85,6 +93,10 @@ url_fclose(URL_FILE *file, bool failOnError, const char *relname)
 			url_custom_fclose(file, failOnError, relname);
 			break;
 
+		case CFTYPE_KITE:
+			url_kite_fclose(file, failOnError, relname);
+			break;
+
 		default: /* unknown or unsupported type - oh dear */
 			elog(ERROR, "unrecognized external table type: %d", file->type);
 			break;
@@ -108,6 +120,9 @@ url_feof(URL_FILE *file, int bytesread)
 		case CFTYPE_CUSTOM:
 			return url_custom_feof(file, bytesread);
 
+		case CFTYPE_KITE:
+			return url_kite_feof(file, bytesread);
+
 		default: /* unknown or supported type - oh dear */
 			elog(ERROR, "unrecognized external table type: %d", file->type);
     }
@@ -130,6 +145,9 @@ url_ferror(URL_FILE *file, int bytesread, char *ebuf, int ebuflen)
 
 		case CFTYPE_CUSTOM:
 			return url_custom_ferror(file, bytesread, ebuf, ebuflen);
+
+		case CFTYPE_KITE:
+			return url_kite_ferror(file, bytesread, ebuf, ebuflen);
 
 		default: /* unknown or supported type - oh dear */
 			elog(ERROR, "unrecognized external table type: %d", file->type);
@@ -156,6 +174,9 @@ url_fread(void *ptr,
 		case CFTYPE_CUSTOM:
 			return url_custom_fread(ptr, size, file, pstate);
 
+		case CFTYPE_KITE:
+			return url_kite_fread(ptr, size, file, pstate);
+
 		default: /* unknown or supported type */
 			elog(ERROR, "unrecognized external table type: %d", file->type);
     }
@@ -179,6 +200,9 @@ url_fwrite(void *ptr, size_t size, URL_FILE *file, CopyState pstate)
 		case CFTYPE_CUSTOM:
 			return url_custom_fwrite(ptr, size, file, pstate);
 
+		case CFTYPE_KITE:
+			return url_custom_fwrite(ptr, size, file, pstate);
+
 		default: /* unknown or unsupported type */
 			elog(ERROR, "unrecognized external table type: %d", file->type);
     }
@@ -198,6 +222,7 @@ url_fflush(URL_FILE *file, CopyState pstate)
 
 		case CFTYPE_EXEC:
 		case CFTYPE_CUSTOM:
+		case CFTYPE_KITE:
 			/* data isn't buffered on app level. no op */
 			break;
 

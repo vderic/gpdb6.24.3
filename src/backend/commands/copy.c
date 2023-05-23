@@ -1449,6 +1449,20 @@ ProcessCopyOptions(CopyState cstate,
 						 errmsg("conflicting or redundant options")));
 			cstate->on_segment = TRUE;
 		}
+		/* EXX_IN_PG */
+		else if (strcmp(defel->defname, "using_intts") == 0) {
+			if (cstate->exx_intts) {
+				ereport(ERROR, 
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						errmsg("conflicting or redundant options")));
+			} 
+		} else if (strcmp(defel->defname, "comment") == 0) {
+			if (true) /* NYI  if (cstate->exx_comment) */ { 
+				ereport(ERROR, 
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						errmsg("conflicting or redundant options")));
+			} 
+		}
 		else
 			ereport(ERROR,
 					(errcode(ERRCODE_SYNTAX_ERROR),

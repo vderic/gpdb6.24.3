@@ -83,7 +83,8 @@ static void FunctionCallPrepareFormatter(FunctionCallInfoData *fcinfo,
 							 FmgrInfo *convFuncs,
 							 Oid *typioparams);
 
-static void open_external_readable_source(FileScanDesc scan, ExternalSelectDesc desc);
+/* EXX_IN_PG - defined in fileam.h */
+void open_external_readable_source(FileScanDesc scan, ExternalSelectDesc desc);
 static void open_external_writable_source(ExternalInsertDesc extInsertDesc);
 static int	external_getdata_callback(void *outbuf, int datasize, void *extra);
 static int	external_getdata(URL_FILE *extfile, CopyState pstate, void *outbuf, int maxread);
@@ -299,7 +300,8 @@ external_beginscan(Relation relation, uint32 scancounter,
 				   scan->fs_uri, rejLimit, rejLimitInRows,
 				   logErrors, extentry->options);
 
-	if (fmttype_is_custom(fmtType))
+    /* EXX_IN_PG: xrg is infact considered builtin. No need for formatter func. */
+	if (fmttype_is_custom(fmtType) && !fmttype_is_xrg_par_orc(fmtType))
 	{
 		/*
 		 * Custom format: get formatter name and find it in the catalog
@@ -318,6 +320,14 @@ external_beginscan(Relation relation, uint32 scancounter,
 		initStringInfo(&scan->fs_formatter->fmt_databuf);
 		scan->fs_formatter->fmt_perrow_ctx = scan->fs_pstate->rowcontext;
 
+	}
+
+    /* EXX_IN_PG */
+	if (fmttype_is_xrg_par_orc(fmtType)) { 
+		scan->fs_formatter = (FormatterData *) palloc0(sizeof(FormatterData));
+		initStringInfo(&scan->fs_formatter->fmt_databuf);
+		scan->fs_formatter->fmt_perrow_ctx = scan->fs_pstate->rowcontext;
+		scan->fs_formatter->fmt_user_tag = EXX_FMT_XRG_ALLSEGS;
 	}
 
 	/* pgstat_initstats(relation); */
@@ -643,7 +653,7 @@ external_insert_init(Relation rel)
 	 */
 
 	/* Parse fmtOptString here */
-	if (fmttype_is_custom(extentry->fmtcode))
+	if (fmttype_is_custom(extentry->fmtcode) || fmttype_is_xrg_par_orc(extentry->fmtcode))
 	{
 		copyFmtOpts = NIL;
 		parseCustomFormatString(extentry->fmtopts,
@@ -1227,6 +1237,11 @@ InitParseState(CopyState pstate, Relation relation,
 			   bool islimitinrows, bool logerrors,
 			   List *extOptions)
 {
+	/* EXX_IN_PG */
+	pstate->exx_intts = true;
+	pstate->exx_comment = NULL;
+	pstate->exx_fmtcode = fmtType;
+
 	/*
 	 * Error handling setup
 	 */
@@ -1358,7 +1373,7 @@ FunctionCallPrepareFormatter(FunctionCallInfoData *fcinfo,
  * 3) a remote gpfdist server
  * 4) a command to execute
  */
-static void
+void
 open_external_readable_source(FileScanDesc scan, ExternalSelectDesc desc)
 {
 	extvar_t	extvar;
@@ -2104,6 +2119,38 @@ parseCopyFormatString(Relation rel, char *fmtstr, char fmttype)
 
 			item = makeDefElem("newline", (Node *)makeString(pstrdup(token)));
 		}
+        /* EXX_IN_PG */
+		else if (pg_strcasecmp(token, "formatter") == 0) {
+			/* ignore formatter here */
+			token = strtokx2(NULL, whitespace, NULL, "'",
+				nonstd_backslash, true, true, encoding);
+			if (!token) {
+				goto error;
+			}
+		}
+		else if (pg_strcasecmp(token, "integer") == 0) {
+			bool ok = false;
+			token = strtokx2(NULL, whitespace, ",", "\"",
+					0, false, false, encoding);
+		if (pg_strcasecmp(token, "timestamp") == 0) {
+			ok = true;
+		}
+
+		if (!ok) {
+			goto error;
+		}
+
+			item = makeDefElem("intts", (Node *) makeInteger(TRUE));
+		}
+		else if (pg_strcasecmp(token, "comment") == 0) {
+			token = strtokx2(NULL, whitespace, NULL, "'", 
+					nonstd_backslash, true, true, encoding); 
+			if (!token) {
+				goto error;
+			}
+
+			item = makeDefElem("comment", (Node *)makeString(pstrdup(token)));
+		}
 		else
 			goto error;
 
@@ -2115,7 +2162,7 @@ parseCopyFormatString(Relation rel, char *fmtstr, char fmttype)
 							 0, false, false, encoding);
 	}
 
-	if (fmttype_is_text(fmttype))
+	if (fmttype_is_text(fmttype) || fmttype_is_xrg_par_orc(fmttype))
 	{
 		/* TEXT is the default */
 	}
