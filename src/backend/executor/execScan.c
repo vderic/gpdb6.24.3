@@ -84,6 +84,27 @@ ExecScanFetch(ScanState *node,
 	return (*accessMtd) (node);
 }
 
+/* EXX_IN_PG */
+static bool exx_skipQualProj(ScanState *node)
+{
+        List       *qual;
+        ProjectionInfo *projInfo;
+
+        /*
+         * Fetch data from node
+         */
+        qual = node->ps.qual;
+        projInfo = node->ps.ps_ProjInfo;
+
+        if (IsA(node, ExternalScanState)) {
+                ExternalScanState *xscan = (ExternalScanState *) node;
+                if (xscan->exx_bc_projslot) {
+                        return true;
+                }
+        }
+        return !qual && !projInfo;
+}
+
 /* ----------------------------------------------------------------
  *		ExecScan
  *
@@ -126,7 +147,8 @@ ExecScan(ScanState *node,
 	 * If we have neither a qual to check nor a projection to do, just skip
 	 * all the overhead and return the raw scan tuple.
 	 */
-	if (!qual && !projInfo)
+	 /* EXX_IN_PG */
+	if (exx_skipQualProj(node))
 	{
 		ResetExprContext(econtext);
 		return ExecScanFetch(node, accessMtd, recheckMtd);

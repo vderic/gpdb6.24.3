@@ -7,6 +7,11 @@
 # When including this file, set OBJS to the object files created in
 # this directory and SUBDIRS to subdirectories containing more things
 # to build.
+PARTIAL_LINKING=yes
+
+CFLAGS := $(CFLAGS)
+CXXFLAGS=$(filter-out -std=c99 -std=gnu99 -Wmissing-prototypes -fexcess-precision=standard -Wdeclaration-after-statement, $(CFLAGS))
+#$(EXX_CXX_WERROR)
 
 ifdef PARTIAL_LINKING
 # old style: linking using SUBSYS.o

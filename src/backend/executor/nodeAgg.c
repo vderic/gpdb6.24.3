@@ -544,6 +544,13 @@ invoke_agg_trans_func(AggState *aggstate,
 void
 advance_aggregates(AggState *aggstate, AggStatePerGroup pergroup)
 {
+	/* EXX_IN_PG */
+	Agg *aggplan = (Agg *) aggstate->ss.ps.plan;
+	if (isNodeBCLVAgg(aggplan->plan.lefttree)) {
+		/* EXX_IN_PG: the tuple has been pre grouped.  */
+		return exx_bclv_advance_aggregates(aggstate, pergroup, &aggstate->mem_manager);
+	}
+
 	int			aggno;
 
 	for (aggno = 0; aggno < aggstate->numaggs; aggno++)

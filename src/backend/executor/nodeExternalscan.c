@@ -25,15 +25,20 @@
 
 #include "access/fileam.h"
 #include "access/heapam.h"
+#include "catalog/pg_exttable.h"
 #include "cdb/cdbvars.h"
 #include "executor/execdebug.h"
 #include "executor/nodeExternalscan.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
+#include "utils/uri.h"
 #include "utils/guc.h"
 #include "parser/parsetree.h"
 #include "optimizer/var.h"
 #include "optimizer/clauses.h"
+
+/* EXX_IN_PG */
+#include "exx/exx.h"
 
 static TupleTableSlot *ExternalNext(ExternalScanState *node);
 static void ExecEagerFreeExternalScan(ExternalScanState *node);
@@ -125,6 +130,47 @@ ExternalNext(ExternalScanState *node)
 	scandesc = node->ess_ScanDesc;
 	direction = estate->es_direction;
 	slot = node->ss.ss_ScanTupleSlot;
+
+	/* EXX_IN_PG */
+	if (node->exx_bc_projslot != 0) {
+		slot = node->exx_bc_projslot;
+	} else {
+		slot = node->ss.ss_ScanTupleSlot;
+	}
+
+	if ((scandesc->fs_uri != NULL && IS_KITE_URI(scandesc->fs_uri))
+			|| (scandesc->fs_formatter && exx_is_xrg_format(scandesc->fs_formatter->fmt_user_tag))) {
+		/*
+		* Intercept spq formatter.
+		* XDrive implies spq, in old loftd code, execute curl will run spq formatter.
+		* XXX: I believe the formater stuff should go away.
+		*/
+		if (scandesc->fs_noop) {
+			return NULL;
+		}
+		while (true) {
+			if (scandesc->fs_formatter == 0 || scandesc->fs_formatter->fmt_user_ctx == 0) {
+				exx_external_xrg_begin(node);
+			}
+			slot = exx_external_xrg_next(node);
+			if (TupIsNull(slot)) {
+				if (!node->delayEagerFree) {
+					ExecEagerFreeExternalScan(node);
+				}
+				break;
+			}
+
+			if (node->ess_ScanDesc->fs_hasConstraints && !ExternalConstraintCheck(slot, node)) {
+				ExecClearTuple(slot);
+				continue;
+			}
+			if (node->cdb_want_ctid && !TupIsNull(slot)) {
+				slot_set_ctid_from_fake(slot, &node->cdb_fake_ctid);
+			}
+			break;
+		}
+		return slot;
+	}
 
 	externalSelectDesc = external_getnext_init(&(node->ss.ps));
 
@@ -288,6 +334,30 @@ ExecInitExternalScan(ExternalScan *node, EState *estate, int eflags)
 	ExecAssignScanProjectionInfo(&externalstate->ss);
 
 	/*
+	 * EXX_IN_PG: qual and proj are processed by xdrive fve query engine.
+	 */
+	if (currentScanDesc->fs_uri != NULL && (fmttype_is_xrg_par_orc(node->fmtType) || fmttype_is_csv(node->fmtType))) {
+		// BCLV: PROJ/BLOOM, will use the proj tupdesc of the scan.
+		// BCLV: AGG, we have extended targetlist with aggstates.
+		if (node->exx_bclv >= BCLV_PROJ) {
+			ProjectionInfo* proj = externalstate->ss.ps.ps_ProjInfo;
+			if (proj) {
+				externalstate->exx_bc_projslot = proj->pi_slot;
+				TupleDesc tupdesc = externalstate->exx_bc_projslot->tts_tupleDescriptor;
+				int nproj = tupdesc->natts;
+				externalstate->exx_bc_in_functions = (FmgrInfo *) palloc(nproj * sizeof(FmgrInfo));
+				externalstate->exx_bc_typioparams = (Oid *) palloc(nproj *sizeof(Oid));
+				for (int i = 0; i < nproj; i++) {
+					Oid infuncoid;
+					getTypeInputInfo(tupdesc->attrs[i]->atttypid,
+									&infuncoid, &externalstate->exx_bc_typioparams[i]);
+					fmgr_info(infuncoid, &externalstate->exx_bc_in_functions[i]);
+				}
+			}
+		}
+	}
+
+	/*
 	 * If eflag contains EXEC_FLAG_REWIND or EXEC_FLAG_BACKWARD or EXEC_FLAG_MARK,
 	 * then this node is not eager free safe.
 	 */
@@ -356,6 +426,14 @@ ExecReScanExternal(ExternalScanState *node)
 	ItemPointerSet(&node->cdb_fake_ctid, 0, 0);
 
 	external_rescan(fileScan);
+
+	/* EXX_IS_PG */
+	if (fileScan->fs_formatter && exx_is_xrg_format(fileScan->fs_formatter->fmt_user_tag)) {
+		elog(LOG, "XRG: External table rescan???");
+		exx_external_xrg_end(node);
+	} else {
+		external_rescan(fileScan);
+	}
 }
 
 static void
@@ -383,6 +461,12 @@ ExecSquelchExternalScan(ExternalScanState *node)
 	 * get information from node
 	 */
 	fileScanDesc = node->ess_ScanDesc;
+
+	/* EXX_IN_PG */
+	if (fileScanDesc->fs_formatter && exx_is_xrg_format(fileScanDesc->fs_formatter->fmt_user_tag)) {
+		elog(LOG, "XRG: spq external node stop scan.");
+		exx_external_xrg_end(node);
+	}
 
 	/*
 	 * stop the file scan
