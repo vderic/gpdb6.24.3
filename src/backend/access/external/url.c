@@ -49,7 +49,7 @@ url_fopen(char *url, bool forwrite, extvar_t *ev, CopyState pstate, ExternalSele
 		return url_file_fopen(url, forwrite, ev, pstate);
 	else if (IS_HTTP_URI(url) || IS_GPFDIST_URI(url) || IS_GPFDISTS_URI(url))
 		return url_curl_fopen(url, forwrite, ev, pstate);
-	else if (IS_KITE_URL(url))
+	else if (IS_KITE_URI(url))
 		return url_kite_fopen(url, forwrite, ev, pstate);
 	else
 		return url_custom_fopen(url, forwrite, ev, pstate, desc);

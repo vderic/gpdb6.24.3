@@ -176,7 +176,7 @@ DefineExternalRelation(CreateExternalStmt *createExtStmt)
 				/*
 				 * EXX_IN_PG: Kite use same permission as gpfdist.
 				 */
-				if ((uri->protocol == URI_GPFDIST || uri->protocol == URI_GPFDISTS || uri->protocol == URI_KITE || uri->protocol == URI_KITEQTY) && iswritable)
+				if ((uri->protocol == URI_GPFDIST || uri->protocol == URI_GPFDISTS || uri->protocol == URI_KITE || uri->protocol == URI_KITEQRY) && iswritable)
 				{
 					Datum	 	d_wextgpfd;
 					bool		createwextgpfd;
