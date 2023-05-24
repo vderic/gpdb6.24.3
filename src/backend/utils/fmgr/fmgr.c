@@ -86,8 +86,8 @@ typedef struct
 static HTAB *CFuncHash = NULL;
 
 
-static void fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
-					   bool ignore_security);
+static void* fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
+					   bool ignore_security, bool ptr);
 static void fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple);
 static void fmgr_info_other_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple);
 static CFuncHashTabEntry *lookup_C_func(HeapTuple procedureTuple);
@@ -161,7 +161,16 @@ fmgr_lookupByName(const char *name)
 void
 fmgr_info(Oid functionId, FmgrInfo *finfo)
 {
-	fmgr_info_cxt_security(functionId, finfo, CurrentMemoryContext, false);
+	fmgr_info_cxt_security(functionId, finfo, CurrentMemoryContext, false, false);
+}
+
+/* EXX_IN_PG */
+void*
+fmgr_info_fn_ptr(Oid functionId)
+{
+	FmgrInfo fi;
+	void *ptr = fmgr_info_cxt_security(functionId, &fi, CurrentMemoryContext, false, true);
+	return ptr;
 }
 
 /*
@@ -171,16 +180,16 @@ fmgr_info(Oid functionId, FmgrInfo *finfo)
 void
 fmgr_info_cxt(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt)
 {
-	fmgr_info_cxt_security(functionId, finfo, mcxt, false);
+	fmgr_info_cxt_security(functionId, finfo, mcxt, false, false);
 }
 
 /*
  * This one does the actual work.  ignore_security is ordinarily false
  * but is set to true when we need to avoid recursion.
  */
-static void
+static void*
 fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
-					   bool ignore_security)
+					   bool ignore_security, bool ptr)
 {
 	const FmgrBuiltin *fbp;
 	HeapTuple	procedureTuple;
@@ -210,13 +219,17 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 		finfo->fn_stats = TRACK_FUNC_ALL;		/* ie, never track */
 		finfo->fn_addr = fbp->func;
 		finfo->fn_oid = functionId;
-		return;
+		return finfo->fn_addr;
 	}
 
 	/* Otherwise we need the pg_proc entry */
 	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
-	if (!HeapTupleIsValid(procedureTuple))
+	if (!HeapTupleIsValid(procedureTuple)) {
+		if (ptr) {
+			return NULL;
+		}
 		elog(ERROR, "cache lookup failed for function %u", functionId);
+	}	
 	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
 
 	finfo->fn_nargs = procedureStruct->pronargs;
@@ -246,7 +259,7 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 		finfo->fn_stats = TRACK_FUNC_ALL;		/* ie, never track */
 		finfo->fn_oid = functionId;
 		ReleaseSysCache(procedureTuple);
-		return;
+		return finfo->fn_addr;
 	}
 
 	switch (procedureStruct->prolang)
@@ -268,11 +281,15 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 				elog(ERROR, "null prosrc");
 			prosrc = TextDatumGetCString(prosrcdatum);
 			fbp = fmgr_lookupByName(prosrc);
-			if (fbp == NULL)
+			if (fbp == NULL) {
+				if (ptr) {
+					return NULL;
+				}
 				ereport(ERROR,
 						(errcode(ERRCODE_UNDEFINED_FUNCTION),
 						 errmsg("internal function \"%s\" is not in internal lookup table",
 								prosrc)));
+			}
 			pfree(prosrc);
 			/* Should we check that nargs, strict, retset match the table? */
 			finfo->fn_addr = fbp->func;
@@ -298,6 +315,8 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
 
 	finfo->fn_oid = functionId;
 	ReleaseSysCache(procedureTuple);
+
+	return finfo->fn_addr;
 }
 
 /*
@@ -415,7 +434,7 @@ fmgr_info_other_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
 	 * to get back a bare pointer to the actual C-language function.
 	 */
 	fmgr_info_cxt_security(languageStruct->lanplcallfoid, &plfinfo,
-						   CurrentMemoryContext, true);
+						   CurrentMemoryContext, true, false);
 	finfo->fn_addr = plfinfo.fn_addr;
 
 	/*
@@ -920,7 +939,7 @@ fmgr_security_definer(PG_FUNCTION_ARGS)
 										sizeof(*fcache));
 
 		fmgr_info_cxt_security(fcinfo->flinfo->fn_oid, &fcache->flinfo,
-							   fcinfo->flinfo->fn_mcxt, true);
+							   fcinfo->flinfo->fn_mcxt, true, false);
 		fcache->flinfo.fn_expr = fcinfo->flinfo->fn_expr;
 
 		tuple = SearchSysCache1(PROCOID,

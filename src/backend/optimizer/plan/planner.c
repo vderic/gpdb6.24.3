@@ -64,6 +64,8 @@
 #include "storage/lmgr.h"
 #include "utils/guc.h"
 
+/* EXX_IN_PG */
+#include "exx/exx.h"
 
 /* GUC parameter */
 double		cursor_tuple_fraction = DEFAULT_CURSOR_TUPLE_FRACTION;
@@ -158,6 +160,9 @@ static Plan *pushdown_preliminary_limit(Plan *plan, Node *limitCount, int64 coun
 static Plan *getAnySubplan(Plan *node);
 static bool isSimplyUpdatableQuery(Query *query);
 
+/* EXX_IN_PG */
+extern void exx_pre_planner_pass(Query *q);
+extern void exx_post_planner_pass(PlannedStmt *p);
 
 /*****************************************************************************
  *
@@ -177,6 +182,9 @@ planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 {
 	PlannedStmt *result;
 	instr_time	starttime, endtime;
+
+	/* EXX_IN_PG */
+	exx_pre_planner_pass(parse);
 
 	if (planner_hook)
 	{
@@ -199,6 +207,9 @@ planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	else
 		result = standard_planner(parse, cursorOptions, boundParams);
 
+	/* EXX_IN_PG */
+	exx_post_planner_pass(result);
+
 	return result;
 }
 
@@ -216,6 +227,14 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	instr_time		starttime;
 	instr_time		endtime;
 	MemoryAccountIdType curMemoryAccountId;
+
+	/* EXX_IN_PG */
+	bool use_orca = optimizer;
+	if (exx_get_query_hint_i32(QH_OPTIMIZER) == 1) {
+		use_orca = true;
+	} else if (exx_get_query_hint_i32(QH_OPTIMIZER) == -1) {
+		use_orca = false;
+	}
 
 	/*
 	 * Use ORCA only if it is enabled and we are in a master QD process.

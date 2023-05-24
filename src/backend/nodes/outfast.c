@@ -145,6 +145,17 @@
 		} \
 	}
 
+/* EXX_IN_PG: Write character array */
+#define WRITE_CHAR_ARRAY(fldname, count) \
+        if ( count > 0 ) \
+        { \
+                int i; \
+                for(i = 0; i < count; i++) \
+                { \
+                        appendBinaryStringInfo(str, (const char *)&node->fldname[i], 1); \
+                } \
+        }
+
 /* Write a boolean array  */
 #define WRITE_BOOL_ARRAY(fldname, count) \
 	if ( count > 0 ) \
@@ -446,6 +457,30 @@ _outMergeJoin(StringInfo str, MergeJoin *node)
 	WRITE_BOOL_ARRAY(mergeNullsFirst, numCols);
 
 	WRITE_BOOL_FIELD(unique_outer);
+}
+
+/* EXX_IN_PG: We make _outExternalScan use fast mode if possible. */
+static void
+_outExternalScan(StringInfo str, const ExternalScan *node)
+{
+	WRITE_NODE_TYPE("EXTERNALSCAN");
+
+	_outScanInfo(str, (Scan *) node);
+
+	WRITE_NODE_FIELD(uriList);
+	WRITE_STRING_FIELD(fmtOptString);
+	WRITE_CHAR_FIELD(fmtType);
+	WRITE_BOOL_FIELD(isMasterOnly);
+	WRITE_INT_FIELD(rejLimit);
+	WRITE_BOOL_FIELD(rejLimitInRows);
+	WRITE_BOOL_FIELD(logErrors);
+	WRITE_INT_FIELD(encoding);
+	WRITE_INT_FIELD(scancounter);
+
+	/* EXX_IN_PG: kite_query */
+	WRITE_INT_FIELD(exx_bclv);
+	WRITE_INT_FIELD(exx_bcsz);
+	WRITE_CHAR_ARRAY(exx_bc, node->exx_bcsz);
 }
 
 static void

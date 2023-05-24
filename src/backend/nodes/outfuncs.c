@@ -605,6 +605,7 @@ _outDynamicSeqScan(StringInfo str, const DynamicSeqScan *node)
 	WRITE_INT_FIELD(partIndexPrintable);
 }
 
+#ifndef COMPILING_BINARY_FUNCS
 static void
 _outExternalScan(StringInfo str, const ExternalScan *node)
 {
@@ -621,7 +622,18 @@ _outExternalScan(StringInfo str, const ExternalScan *node)
 	WRITE_BOOL_FIELD(logErrors);
 	WRITE_INT_FIELD(encoding);
 	WRITE_INT_FIELD(scancounter);
+
+	/*
+	  EXX_IN_PG: kite_query
+	*/
+	WRITE_INT_FIELD(exx_bclv);
+	WRITE_INT_FIELD(exx_bcsz);
+	appendStringInfo(str, " :exx_bc");
+	for (int i = 0; i < node->exx_bcsz; i++) {
+		appendStringInfo(str, " %d", node->exx_bc[i]);
+	}
 }
+#endif
 
 #ifndef COMPILING_BINARY_FUNCS
 static void

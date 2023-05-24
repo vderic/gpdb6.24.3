@@ -543,6 +543,15 @@ _copyExternalScan(const ExternalScan *from)
 	COPY_SCALAR_FIELD(encoding);
 	COPY_SCALAR_FIELD(scancounter);
 
+	/* 
+	 * EXX_IN_PG:
+	 */
+	COPY_SCALAR_FIELD(exx_bclv); 
+	COPY_SCALAR_FIELD(exx_bcsz);
+	if (from->exx_bcsz > 0) {
+		COPY_POINTER_FIELD(exx_bc, from->exx_bcsz);
+	}
+
 	return newnode;
 }
 

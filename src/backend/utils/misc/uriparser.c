@@ -67,7 +67,13 @@ ParseExternalTableUri(const char *uri_str)
 		uri->protocol = URI_GPFDISTS;
 		protocol_len = strlen(PROTOCOL_GPFDISTS);
 	}
-
+	/*
+	 * EXX_IN_PG
+	 */
+	else if (IS_KITE_URI(uri_str)) {
+		uri->protocol = URI_KITE;
+		protocol_len = strlen(PROTOCOL_KITE);
+	}
 	else /* not recognized. treat it as a custom protocol */
 	{
 		char *post_protocol = strstr(uri_str, "://");

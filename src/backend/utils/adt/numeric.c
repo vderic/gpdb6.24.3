@@ -3187,6 +3187,77 @@ numeric_avg_accum(PG_FUNCTION_ARGS)
 }
 
 /*
+ * EXX_IN_PG - transition function for numeric aggregate that don't require sumX2.
+ * It accepts two argument sumX (Numeric) and N (int64)
+ */
+Datum
+exx_numeric_avg_combine(PG_FUNCTION_ARGS)
+{
+	NumericVar      X;
+	NumericVar      X2;
+	MemoryContext old_context;
+	NumericAggState *state;
+
+	state = PG_ARGISNULL(0) ? NULL : (NumericAggState *) PG_GETARG_POINTER(0);
+	Numeric newval = PG_GETARG_NUMERIC(1);
+	int64 N = PG_GETARG_INT64(2);
+
+	/* Create the state data on thei first call */
+	if (state == NULL)
+		state = makeNumericAggState(fcinfo, false);
+
+	if (NUMERIC_IS_NAN(newval))
+	{
+		state->NaNcount++;
+		PG_RETURN_POINTER(state);
+	}
+
+	/* load processed number in short-lived context */
+	init_var_from_num(newval, &X);
+
+	/*
+	 * Tack the highest input dscale that we've seen, to support invers
+	 * transitions (see do_numeric_discard).
+	 */
+	if (X.dscale > state->maxScale)
+	{
+		state->maxScale = X.dscale;
+		state->maxScaleCount = 1;
+	}
+	else if (X.dscale == state->maxScale)
+		state->maxScaleCount += 1;
+
+	if (state->calcSumX2)
+	{
+		init_var(&X2);
+		mul_var(&X, &X, &X2, X.dscale * 2);
+	}
+
+	old_context = MemoryContextSwitchTo(state->agg_context);
+
+	if (state->N > 0) {
+		/* Accumulate sums */
+		add_var(&X, &(state->sumX), &(state->sumX));
+		state->N += N;
+
+		if (state->calcSumX2)
+			add_var(&X2, &(state->sumX2), &(state->sumX2));
+
+	} else {
+		/* First input, so initialize sums */
+		set_var_from_var(&X, &(state->sumX));
+		state->N = N;
+
+		if (state->calcSumX2)
+			set_var_from_var(&X2, &(state->sumX2));
+	}
+
+	MemoryContextSwitchTo(old_context);
+
+	PG_RETURN_POINTER(state);
+}
+
+/*
  * Combine function for numeric aggregates which don't require sumX2
  */
 Datum
@@ -3624,6 +3695,56 @@ typedef NumericAggState PolyNumAggState;
 #define makePolyNumAggState makeNumericAggState
 #define makePolyNumAggStateCurrentContext makeNumericAggStateCurrentContext
 #endif
+
+/*
+ * EXX_IN_PG - handle int128 sum
+ *
+ */
+extern Datum
+exx_int128_numeric(PG_FUNCTION_ARGS)
+{
+        int128           val = *((int128 *) PG_GETARG_POINTER(0));
+        Numeric         res;
+        NumericVar      result;
+
+        quick_init_var(&result);
+
+        int128_to_numericvar(val, &result);
+
+        res = make_result(&result);
+
+        PG_RETURN_NUMERIC(res);
+}
+
+/*
+ * Transition function for int128 input when we don't need sumX2.
+ */
+extern Datum
+exx_int128_avg_accum(PG_FUNCTION_ARGS)
+{
+        PolyNumAggState *state;
+
+        state = PG_ARGISNULL(0) ? NULL : (PolyNumAggState *) PG_GETARG_POINTER(0);
+
+        /* Create the state data on the first call */
+        if (state == NULL)
+                state = makePolyNumAggState(fcinfo, false);
+
+        if (!PG_ARGISNULL(1))
+        {
+#ifdef HAVE_INT128
+                do_int128_accum(state, *((int128 *) PG_GETARG_POINTER(1)));
+#else
+                Numeric         newval;
+
+                newval = DatumGetNumeric(DirectFunctionCall1(exx_int128_numeric,
+                                                                                                         PG_GETARG_DATUM(1)));
+                do_numeric_accum(state, newval);
+#endif
+        }
+
+        PG_RETURN_POINTER(state);
+}
 
 Datum
 int2_accum(PG_FUNCTION_ARGS)

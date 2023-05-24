@@ -1,0 +1,2 @@
+To see what symbols we import from pg: 
+   g++ *.o `llvm-config --ldflags --libs core jit native` -o out 

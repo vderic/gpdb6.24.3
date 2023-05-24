@@ -4032,6 +4032,16 @@ copy_opt_item:
 				{
 					$$ = makeDefElem("on_segment", (Node *)makeInteger(TRUE));
 				}
+			/* EXX_IN_PG: new options to CSV parsing. */
+			| INTEGER TIMESTAMP
+				{
+					$$ = makeDefElem("integer_timestamp", (Node *) makeInteger(TRUE));
+				}
+			| COMMENT opt_as Sconst
+				{
+					$$ = makeDefElem("comment", (Node *) makeString($3));
+				}
+
 		;
 
 /* The following exist for backward compatibility with very old versions */
@@ -5629,6 +5639,15 @@ format_opt_item:
 			| NEWLINE opt_as Sconst
 			{
 				$$ = makeDefElem("newline", (Node *)makeString($3));
+			}
+			/* EXX_IN_PG */
+			| INTEGER TIMESTAMP
+			{
+				$$ = makeDefElem("using_intts", (Node *) makeInteger(TRUE));
+			}
+			| COMMENT opt_as Sconst
+			{
+				$$ = makeDefElem("comment", (Node *) makeString($3));
 			}
 			;
 

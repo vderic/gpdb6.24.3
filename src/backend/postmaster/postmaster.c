@@ -147,6 +147,8 @@
 #include "cdb/cdbendpoint.h"
 #include "cdb/ic_proxy_bgworker.h"
 
+#include "exx/exx_lli.h"
+
 /*
  * This is set in backends that are handling a GPDB specific message (FTS or
  * fault injector) on mirror.
@@ -1500,6 +1502,9 @@ PostmasterMain(int argc, char *argv[])
 	 * Remember postmaster startup time
 	 */
 	PgStartTime = GetCurrentTimestamp();
+
+	/* EXX_IN_PG */
+	exx_init();
 
 	/*
 	 * We're ready to rock and roll...
@@ -4767,6 +4772,9 @@ BackendRun(Port *port)
 	/* slightly hacky way to convert timestamptz into integers */
 	TimestampDifference(0, port->SessionStartTime, &secs, &usecs);
 	srandom((unsigned int) (MyProcPid ^ (usecs << 12) ^ secs));
+
+	/* EXX_IN_PG */
+	srand48((unsigned int) (MyProcPid ^ usecs));
 
 	/*
 	 * Now, build the argv vector that will be given to PostgresMain.

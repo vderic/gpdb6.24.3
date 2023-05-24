@@ -156,6 +156,19 @@ static Bitmapset *bitmapsetRead(void);
 		} \
 	}
 
+/* EXX_IN_PG - Read an char array */
+#define READ_CHAR_ARRAY(fldname, count) \
+        if ( count > 0 ) \
+        { \
+                int i; \
+                local_node->fldname = (char *)palloc(count); \
+                for(i = 0; i < count; i++) \
+                { \
+                        memcpy(&local_node->fldname[i], read_str_ptr, 1); \
+                        read_str_ptr+=1; \
+                } \
+        }
+
 /* Read a bool array  */
 #define READ_BOOL_ARRAY(fldname, count) \
 	if ( count > 0 ) \
@@ -1613,6 +1626,11 @@ _readExternalScan(void)
 	READ_BOOL_FIELD(logErrors);
 	READ_INT_FIELD(encoding);
 	READ_INT_FIELD(scancounter);
+
+	/* EXX_IN_PG */
+	READ_INT_FIELD(exx_bclv);
+	READ_INT_FIELD(exx_bcsz);
+	READ_CHAR_ARRAY(exx_bc, local_node->exx_bcsz);
 
 	READ_DONE();
 }

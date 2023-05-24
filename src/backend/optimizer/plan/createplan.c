@@ -1788,9 +1788,11 @@ create_external_scan_uri_list(ExtTableEntry *ext, bool *ismasteronly)
 
 
 	}
-	/* (2) */
+	/* (2) */ /* EXX_IN_PG */
 	else if (using_location && (uri->protocol == URI_GPFDIST ||
 							   uri->protocol == URI_GPFDISTS ||
+							   uri->protocol == URI_KITE ||
+							   uri->protocol == URI_KITEQRY ||
 							   uri->protocol == URI_CUSTOM))
 	{
 		if ((strcmp(on_clause, "MASTER_ONLY") == 0) && (uri->protocol == URI_CUSTOM))
@@ -1838,6 +1840,11 @@ create_external_scan_uri_list(ExtTableEntry *ext, bool *ismasteronly)
 			}
 			else
 			{
+				/*
+				 * EXX_IN_PG
+				 * XDRIVE case falls here: Use all available segments.
+				 */
+
 				/*
 				 * for custom protocol, set max_participants_allowed to
 				 * num_segs_participating so that assignment to segments will use
