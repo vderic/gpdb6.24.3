@@ -645,7 +645,7 @@ workfile_mgr_create_set_internal(const char *operator_name, const char *prefix)
 
 	/* EXX_IN_PG */
 	if (operator_name)
-		strlcpy(work_set->operator, operator_name, sizeof(work_set->operator_name));
+		strlcpy(work_set->operator_name, operator_name, sizeof(work_set->operator_name));
 	else
 		work_set->operator_name[0] = '\0';
 
