@@ -15,7 +15,9 @@
 #ifndef GPDB_gpdbwrappers_H
 #define GPDB_gpdbwrappers_H
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 #include "postgres.h"
 
 #include "access/attnum.h"
@@ -23,7 +25,9 @@ extern "C" {
 #include "parser/parse_coerce.h"
 #include "utils/faultinjector.h"
 #include "utils/lsyscache.h"
+#ifdef __cplusplus
 }
+#endif
 
 #include "gpos/types.h"
 // fwd declarations

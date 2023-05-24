@@ -85,6 +85,11 @@ typedef struct FunctionCallInfoData
 extern void fmgr_info(Oid functionId, FmgrInfo *finfo);
 
 /*
+ * EXX_IN_PG.
+ */
+extern void* fmgr_info_fn_ptr(Oid functionId);
+
+/*
  * Same, when the FmgrInfo struct is in a memory context longer-lived than
  * CurrentMemoryContext.  The specified context will be set as fn_mcxt
  * and used to hold all subsidiary data of finfo.

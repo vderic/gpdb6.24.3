@@ -2202,6 +2202,11 @@ typedef struct ExternalScanState
 	ItemPointerData cdb_fake_ctid;
 	bool		delayEagerFree;		/* is it safe to free memory used by this node,
 									 * when this node has outputted its last row? */
+	/* EXX_IN_PG: In case a kite query push down */
+	TupleTableSlot *exx_bc_projslot;
+	FmgrInfo *exx_bc_in_functions;
+	Oid* exx_bc_typioparams;
+
 } ExternalScanState;
 
 /*

@@ -124,5 +124,22 @@ extern void RemoveExtTableEntry(Oid relid);
 #define fmttype_is_custom(c) (c == 'b')
 #define fmttype_is_text(c)   (c == 't')
 #define fmttype_is_csv(c)    (c == 'c')
+#define fmttype_is_parquet(c) (c == 'p')
+#define fmttype_is_orc(c) (c == 'o')
+#define fmttype_is_xrg(c)    (c == 'x')
+#define fmttype_is_xrg_par_orc(c) (c == 'x' || c == 'o' || c == 'p')
+
+static inline bool fmttype_is_valid(char c)
+{
+        return c == 'c'                 // csv
+                || c == 't'                     // text
+                || c == 'a'                     // avro
+                || c == 'p'                     // parquet
+                || c == 'o'                     // orc
+                || c == 'x'                     // xrg
+                || c == 'b'                     // b is explicitly 'custom'
+                ;
+}
+
 
 #endif /* PG_EXTTABLE_H */

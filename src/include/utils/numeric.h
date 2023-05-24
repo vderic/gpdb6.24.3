@@ -38,6 +38,14 @@
  */
 #define NUMERIC_MIN_SIG_DIGITS		16
 
+/* EXX_IN_PG */
+#define NUMERIC_POS                     0x0000
+#define NUMERIC_NEG                     0x4000
+#define NUMERIC_NAN                     0xC000
+#define NUMERIC_HDRSZ   (VARHDRSZ + sizeof(uint16) + sizeof(int16))
+#define NUMERIC_HDRSZ_SHORT (VARHDRSZ + sizeof(uint16))
+
+
 /* The actual contents of Numeric are private to numeric.c */
 struct NumericData;
 typedef struct NumericData *Numeric;

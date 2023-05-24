@@ -32,6 +32,18 @@ typedef enum FmtNotification
 } FmtNotification;
 
 /*
+ * EXX_IN_PG
+ */
+typedef enum FmtUserTag
+{
+	EXX_FMT_UNKNOWN,
+	EXX_FMT_XRG,
+	EXX_FMT_XRG_ALLSEGS,
+} FmtUserTag;
+
+#define exx_is_xrg_format(tag) ((tag == EXX_FMT_XRG || tag == EXX_FMT_XRG_ALLSEGS))
+
+/*
  * FormatterData is the node type that is passed as fmgr "context" info
  * when a function is called by the External Table Formatter manager.
  */
@@ -54,6 +66,8 @@ typedef struct FormatterData
 	Oid            *fmt_typioparams;
 	MemoryContext	fmt_perrow_ctx;
 	void		   *fmt_user_ctx;
+	/* EXX_IN_PG */
+	FmtUserTag              fmt_user_tag;
 	
 	/* sreh */
 	int				fmt_badrow_num;

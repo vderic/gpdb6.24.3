@@ -154,6 +154,10 @@ typedef struct CopyStateData
 	bool	   *convert_select_flags;	/* per-column CSV/TEXT CS flags */
 	bool		fill_missing;	/* missing attrs at end of line are NULL */
 
+	/* EXX_IN_PG */
+	bool exx_intts;             /* if use int32 as data, int64 as timestamp */
+	char *exx_comment;          /* comment if first char of a line is comment char, treat whole line as comment */
+
 	SingleRowErrorDesc *sreh;
 
 	/* these are just for error messages, see CopyFromErrorCallback */
@@ -257,6 +261,9 @@ typedef struct CopyStateData
 	CdbCopy    *cdbCopy;
 
 	bool		delim_off;		/* delimiter is set to OFF? */
+
+	/* EXX_IN_PG */
+	char exx_fmtcode;
 
 /* end Greenplum Database specific variables */
 } CopyStateData;

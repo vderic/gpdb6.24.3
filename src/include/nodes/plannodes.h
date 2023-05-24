@@ -810,6 +810,16 @@ typedef struct WorkTableScan
  * file name for segment I.
  * ----------------
  */
+/* EXX_IN_PG */
+typedef enum EXX_BCLV {
+        BCLV_NONE,
+        BCLV_1,
+        BCLV_QUAL,
+        BCLV_PROJ,
+        BCLV_BLOOM,
+        BCLV_AGG,
+} EXX_BCLV;
+
 typedef struct ExternalScan
 {
 	Scan		scan;
@@ -823,7 +833,24 @@ typedef struct ExternalScan
 	int			encoding;		/* encoding of external table data    */
 	uint32      scancounter;	/* counter incr per scan node created */
 
+	/* EXX_IN_PG */
+	int			exx_bclv;
+	int			exx_bcsz;
+	char		*exx_bc;
 } ExternalScan;
+
+/*
+ * EXX_IN_PG:
+ *    If a node performed agg
+ */
+static inline bool isNodeBCLVAgg(Plan *plan)
+{
+	if (IsA(plan, ExternalScan)) {
+		ExternalScan *scan = (ExternalScan *) plan;
+		return scan->exx_bclv == BCLV_AGG;
+	}
+	return false;
+}
 
 /* ----------------
  *		ForeignScan node

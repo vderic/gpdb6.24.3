@@ -212,6 +212,10 @@ initialize_aggregates(AggState *aggstate,
 extern void 
 advance_aggregates(AggState *aggstate, AggStatePerGroup pergroup);
 
+extern void
+exx_bclv_advance_aggregates(AggState *aggstate, AggStatePerGroup pergroup,
+                                   MemoryManagerContainer *mem_manager);
+
 extern Oid resolve_polymorphic_transtype(Oid aggtranstype, Oid aggfnoid,
 										 Oid *inputTypes);
 

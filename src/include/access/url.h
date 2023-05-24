@@ -27,7 +27,8 @@ enum fcurl_type_e
 	CFTYPE_FILE = 1,
 	CFTYPE_CURL = 2,
 	CFTYPE_EXEC = 3,
-	CFTYPE_CUSTOM = 4
+	CFTYPE_CUSTOM = 4,
+	CFTYPE_KITE = 5
 };
 
 /*
@@ -110,6 +111,16 @@ extern bool url_custom_feof(URL_FILE *file, int bytesread);
 extern bool url_custom_ferror(URL_FILE *file, int bytesread, char *ebuf, int ebuflen);
 extern size_t url_custom_fread(void *ptr, size_t size, URL_FILE *file, CopyState pstate);
 extern size_t url_custom_fwrite(void *ptr, size_t size, URL_FILE *file, CopyState pstate);
+
+/*
+ * EXX_IN_PG
+ */
+extern URL_FILE *url_kite_fopen(char *url, bool forwrite, extvar_t *ev, CopyState pstate);
+extern void url_kite_fclose(URL_FILE *file, bool failOnError, const char *relname);
+extern bool url_kite_feof(URL_FILE *file, int bytesread);
+extern bool url_kite_ferror(URL_FILE *file, int bytesread, char *ebuf, int ebuflen);
+extern size_t url_kite_fread(void *ptr, size_t size, URL_FILE *file, CopyState pstate);
+extern size_t url_kite_fwrite(void *ptr, size_t size, URL_FILE *file, CopyState pstate);
 
 /* GUC */
 extern int readable_external_table_timeout;

@@ -22,7 +22,12 @@ typedef enum UriProtocol
 	URI_HTTP,
 	URI_GPFDIST,
 	URI_CUSTOM,
-	URI_GPFDISTS
+	URI_GPFDISTS,
+	/*
+	 * EXX_IN_PG
+	 */
+	URI_KITE,
+	URI_KITEQRY
 }	UriProtocol;
 
 #define PROTOCOL_FILE		"file://"
@@ -40,6 +45,10 @@ typedef enum UriProtocol
 #define IS_GPFDIST_URI(uri_str) (pg_strncasecmp(uri_str, PROTOCOL_GPFDIST, strlen(PROTOCOL_GPFDIST)) == 0)
 #define IS_GPFDISTS_URI(uri_str) (pg_strncasecmp(uri_str, PROTOCOL_GPFDISTS, strlen(PROTOCOL_GPFDISTS)) == 0) 
 #define IS_FTP_URI(uri_str) (pg_strncasecmp(uri_str, PROTOCOL_FTP, strlen(PROTOCOL_FTP)) == 0)
+
+/* EXX_IN_PG */
+#define PROTOCOL_KITE "kite://"
+#define IS_KITE_URI(uri_str) (pg_strncasecmp(uri_str, PROTOCOL_KITE, strlen(PROTOCOL_KITE)) == 0)
 
 typedef struct Uri
 {

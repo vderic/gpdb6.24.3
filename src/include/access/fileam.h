@@ -95,4 +95,7 @@ extern char *make_command(const char *cmd, extvar_t *ev);
 extern List *parseCopyFormatString(Relation rel, char *fmtstr, char fmttype);
 extern List *appendCopyEncodingOption(List *copyFmtOpts, int encoding);
 
+/* EXX_IN_PG */
+extern void open_external_readable_source(FileScanDesc scan, ExternalSelectDesc desc);
+
 #endif   /* FILEAM_H */
