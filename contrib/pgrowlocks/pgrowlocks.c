@@ -75,7 +75,7 @@ pgrowlocks(PG_FUNCTION_ARGS)
 	AttInMetadata *attinmeta;
 	Datum		result;
 	MyData	   *mydata;
-	Relation	rel;
+	Relation	rel = NULL;
 
 	if (SRF_IS_FIRSTCALL())
 	{
